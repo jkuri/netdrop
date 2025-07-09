@@ -9,11 +9,14 @@ dotenvy = "0.15.7"
 include_dir = "0.7.4"
 rocket = { version = "0.5.1", features = ["json"] }
 rocket_cors = "0.6.0"
+multer = "3.0"
+futures = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10"
 hex = "0.4"
 tokio = { version = "1.0", features = ["fs"] }
+tokio-util = { version = "0.7", features = ["io"] }
 
 [dev-dependencies]
 tempfile = "3.8"

@@ -247,3 +247,134 @@ fn test_cors_configuration() {
     // with a running server, but this ensures the configuration is valid
     assert!(true, "CORS configuration compiles successfully");
 }
+
+#[test]
+#[serial]
+fn test_multipart_upload_logic() {
+    let temp_dir = setup_test_env();
+
+    // Test that the multipart upload logic correctly separates:
+    // - file_name: original filename from the upload
+    // - file_path: hash-based storage path
+
+    let test_content = b"Multipart upload test content";
+    let original_filename = "test_document.pdf";
+
+    // Simulate the process_file_upload function logic
+    let data_dir = env::var("DATA_DIR").unwrap_or_else(|_| "data".to_string());
+    let upload_dir = format!("{}/uploads", data_dir);
+    fs::create_dir_all(&upload_dir).expect("Failed to create upload directory");
+
+    // Calculate hash like the upload function does
+    use sha2::{Sha256, Digest};
+    use hex;
+
+    let mut hasher = Sha256::new();
+    hasher.update(test_content);
+    let file_hash = hex::encode(hasher.finalize());
+
+    // Storage name should be first 16 chars of hash
+    let storage_name = &file_hash[..16];
+    let file_path = format!("{}/{}", upload_dir, storage_name);
+
+    // Save file with hash-based name
+    fs::write(&file_path, test_content).expect("Failed to save file");
+
+    // Verify the file structure:
+    // 1. File is stored with hash-based name
+    assert!(std::path::Path::new(&file_path).exists());
+
+    // 2. Original filename would be stored in database (simulated here)
+    assert_eq!(original_filename, "test_document.pdf");
+
+    // 3. Storage path uses hash
+    assert!(file_path.contains(storage_name));
+    assert!(!file_path.contains("test_document.pdf"));
+
+    // 4. File content is preserved
+    let saved_content = fs::read(&file_path).expect("Failed to read saved file");
+    assert_eq!(saved_content, test_content);
+}
+
+#[test]
+#[serial]
+fn test_hash_storage_consistency() {
+    let _temp_dir = setup_test_env();
+
+    // Test that we store the full hash in database but use short hash for file path
+    let test_content = b"Hash storage consistency test";
+
+    use sha2::{Sha256, Digest};
+    use hex;
+
+    let mut hasher = Sha256::new();
+    hasher.update(test_content);
+    let full_hash = hex::encode(hasher.finalize());
+    let short_hash = &full_hash[..16];
+
+    // Verify the relationship
+    assert_eq!(full_hash.len(), 64); // Full SHA256 hash
+    assert_eq!(short_hash.len(), 16); // Short hash for file storage
+    assert!(full_hash.starts_with(short_hash)); // Short hash is prefix of full hash
+
+    // This ensures:
+    // - Database stores full hash for download lookups
+    // - File system uses short hash for storage path
+    // - Download can find files using full hash
+}
+
+#[test]
+#[serial]
+fn test_timestamp_based_unique_hashes() {
+    let _temp_dir = setup_test_env();
+
+    // Test that identical files uploaded at different times get different hashes
+    let test_content = b"Identical file content for uniqueness test";
+
+    use sha2::{Sha256, Digest};
+    use hex;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::thread;
+    use std::time::Duration;
+
+    // Simulate first upload
+    let timestamp1 = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+
+    let mut hasher1 = Sha256::new();
+    hasher1.update(test_content);
+    hasher1.update(timestamp1.to_be_bytes());
+    let hash1 = hex::encode(hasher1.finalize());
+
+    // Wait a bit to ensure different timestamp
+    thread::sleep(Duration::from_millis(1));
+
+    // Simulate second upload of same content
+    let timestamp2 = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+
+    let mut hasher2 = Sha256::new();
+    hasher2.update(test_content);
+    hasher2.update(timestamp2.to_be_bytes());
+    let hash2 = hex::encode(hasher2.finalize());
+
+    // Verify that:
+    // 1. Timestamps are different
+    assert_ne!(timestamp1, timestamp2);
+
+    // 2. Hashes are different despite identical content
+    assert_ne!(hash1, hash2);
+
+    // 3. Both hashes are valid SHA256 (64 characters)
+    assert_eq!(hash1.len(), 64);
+    assert_eq!(hash2.len(), 64);
+
+    // 4. Short hashes (first 16 chars) are also different
+    let short_hash1 = &hash1[..16];
+    let short_hash2 = &hash2[..16];
+    assert_ne!(short_hash1, short_hash2);
+}

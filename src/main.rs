@@ -6,11 +6,13 @@ use rocket::http::ContentType;
 use std::path::PathBuf;
 use rocket::serde::{Serialize, json::Json};
 use rocket::data::{Data, ToByteUnit};
-use rocket::tokio::io::AsyncReadExt;
+use multer::Multipart;
+use tokio_util::io::ReaderStream;
 use sha2::{Sha256, Digest};
 use hex;
 use std::fs;
 use std::env;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use netdrop::{establish_connection, create_file, get_file_by_hash, models::NewFile};
 use rocket::response::Responder;
@@ -42,8 +44,54 @@ pub async fn static_files(file: PathBuf) -> Option<(ContentType, Vec<u8>)> {
     Some((content_type, file_content.contents().to_vec()))
 }
 
-#[post("/api/v1/upload", data = "<data>")]
-pub async fn upload_file(data: Data<'_>) -> Result<Json<UploadResponse>, Json<ErrorResponse>> {
+#[post("/api/v1/upload", data = "<data>", format = "multipart/form-data")]
+pub async fn upload_file(content_type: &ContentType, data: Data<'_>) -> Result<Json<UploadResponse>, Json<ErrorResponse>> {
+    // Extract boundary from content type
+    let boundary = content_type
+        .params()
+        .find(|(name, _)| name == &"boundary")
+        .map(|(_, value)| value)
+        .ok_or_else(|| Json(ErrorResponse {
+            success: false,
+            error: "Missing boundary in multipart data".to_string(),
+        }))?;
+
+    // Read the data stream and convert to a format multer can use
+    let stream = data.open(1000.megabytes());
+    let reader_stream = ReaderStream::new(stream);
+    let mut multipart = Multipart::new(reader_stream, boundary);
+
+    let mut file_data: Option<Vec<u8>> = None;
+    let mut filename: Option<String> = None;
+
+    // Process multipart fields
+    while let Some(field) = multipart.next_field().await.map_err(|_| Json(ErrorResponse {
+        success: false,
+        error: "Failed to parse multipart data".to_string(),
+    }))? {
+
+        let field_name = field.name().unwrap_or("").to_string();
+
+        if field_name == "file" {
+            filename = field.file_name().map(|s| s.to_string());
+            file_data = Some(field.bytes().await.map_err(|_| Json(ErrorResponse {
+                success: false,
+                error: "Failed to read file data".to_string(),
+            }))?.to_vec());
+        }
+    }
+
+    let buffer = file_data.ok_or_else(|| Json(ErrorResponse {
+        success: false,
+        error: "No file data found in multipart upload".to_string(),
+    }))?;
+
+    let original_filename = filename.unwrap_or_else(|| "uploaded_file".to_string());
+
+    process_file_upload(buffer, original_filename).await
+}
+
+async fn process_file_upload(buffer: Vec<u8>, original_filename: String) -> Result<Json<UploadResponse>, Json<ErrorResponse>> {
     // Get upload directory from environment variable, default to "uploads"
     let data_dir = env::var("DATA_DIR").unwrap_or_else(|_| "data".to_string());
     let upload_dir = format!("{}/uploads", data_dir);
@@ -55,33 +103,21 @@ pub async fn upload_file(data: Data<'_>) -> Result<Json<UploadResponse>, Json<Er
         }));
     }
 
-    // Read the uploaded data
-    let mut buffer = Vec::new();
-    let mut stream = data.open(1000.megabytes()); // Limit to 1GB
+    // Calculate file hash with timestamp to ensure uniqueness
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
 
-    if let Err(_) = stream.read_to_end(&mut buffer).await {
-        return Err(Json(ErrorResponse {
-            success: false,
-            error: "Failed to read uploaded file".to_string(),
-        }));
-    }
-
-    if buffer.is_empty() {
-        return Err(Json(ErrorResponse {
-            success: false,
-            error: "No file data received".to_string(),
-        }));
-    }
-
-    // Calculate file hash
     let mut hasher = Sha256::new();
     hasher.update(&buffer);
+    hasher.update(timestamp.to_be_bytes()); // Add timestamp to hash
     let hash_bytes = hasher.finalize();
     let file_hash = hex::encode(hash_bytes);
 
-    // Generate filename based on hash (without extension)
-    let file_name = format!("{}", &file_hash[..16]); // Use first 16 chars of hash
-    let file_path = format!("{}/{}", upload_dir, file_name);
+    // Use original filename for file_name, hash-based name for storage
+    let short_hash = format!("{}", &file_hash[..16]); // Use first 16 chars of hash for storage
+    let file_path = format!("{}/{}", upload_dir, short_hash);
 
     // Save file to disk
     if let Err(_) = fs::write(&file_path, &buffer) {
@@ -97,9 +133,9 @@ pub async fn upload_file(data: Data<'_>) -> Result<Json<UploadResponse>, Json<Er
     };
 
     let new_file = NewFile {
-        file_hash: &file_hash,
-        file_name: &file_name,
-        file_path: &file_path,
+        file_hash: &short_hash,        // Store short hash for lookups
+        file_name: &original_filename, // Use original filename
+        file_path: &file_path,         // Use hash-based storage path
         size: buffer.len() as i32,
         private: true, // Default to private
     };
@@ -123,10 +159,10 @@ pub struct FileDownload {
 }
 
 #[get("/download/<file_hash>")]
-pub fn download_file(file_hash: String) -> Result<FileDownload, Status> {
+pub fn download_file(file_hash: &str) -> Result<FileDownload, Status> {
     // Get file info from database
     let mut connection = establish_connection();
-    let file = match get_file_by_hash(&mut connection, &file_hash) {
+    let file = match get_file_by_hash(&mut connection, file_hash) {
         Some(file) => file,
         None => return Err(Status::NotFound),
     };
