@@ -1,6 +1,9 @@
 pub mod models;
 pub mod schema;
 
+#[cfg(test)]
+mod tests;
+
 use diesel::prelude::*;
 use dotenvy::dotenv;
 use std::env;

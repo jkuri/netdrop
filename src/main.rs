@@ -33,7 +33,7 @@ struct ErrorResponse {
 }
 
 #[get("/<file..>")]
-async fn static_files(file: PathBuf) -> Option<(ContentType, Vec<u8>)> {
+pub async fn static_files(file: PathBuf) -> Option<(ContentType, Vec<u8>)> {
     let path = file.display().to_string();
     let file_content = ASSETS.get_file(&path)?;
     let content_type = ContentType::from_extension(file.extension()?.to_str()?)?;
@@ -42,7 +42,7 @@ async fn static_files(file: PathBuf) -> Option<(ContentType, Vec<u8>)> {
 }
 
 #[post("/api/v1/upload", data = "<data>")]
-async fn upload_file(data: Data<'_>) -> Result<Json<UploadResponse>, Json<ErrorResponse>> {
+pub async fn upload_file(data: Data<'_>) -> Result<Json<UploadResponse>, Json<ErrorResponse>> {
     // Get upload directory from environment variable, default to "uploads"
     let data_dir = env::var("DATA_DIR").unwrap_or_else(|_| "data".to_string());
     let upload_dir = format!("{}/uploads", data_dir);
@@ -122,7 +122,7 @@ struct FileDownload {
 }
 
 #[get("/download/<file_hash>")]
-fn download_file(file_hash: String) -> Result<FileDownload, Status> {
+pub fn download_file(file_hash: String) -> Result<FileDownload, Status> {
     // Get file info from database
     let mut connection = establish_connection();
     let file = match get_file_by_hash(&mut connection, &file_hash) {
@@ -148,12 +148,12 @@ fn download_file(file_hash: String) -> Result<FileDownload, Status> {
 }
 
 #[get("/")]
-fn index() -> RawHtml<&'static str> {
+pub fn index() -> RawHtml<&'static str> {
     RawHtml(ASSETS.get_file("index.html").map_or("Not found", |f| std::str::from_utf8(f.contents()).unwrap_or("Invalid UTF-8")))
 }
 
 #[launch]
-fn rocket() -> _ {
+pub fn rocket() -> _ {
     rocket::build()
         .mount("/", routes![index, static_files, upload_file, download_file])
 }
