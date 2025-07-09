@@ -1,4 +1,5 @@
 import { Background } from "./components/common/background";
+import { Dropzone } from "./components/common/dropzone";
 
 export function App() {
   return (
@@ -6,11 +7,7 @@ export function App() {
       <Background />
 
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-8">
-        <div className="text-center">
-          <h1 className="font-medium text-2xl text-gray-800">
-            NetDrop initial impl
-          </h1>
-        </div>
+        <Dropzone />
       </div>
     </div>
   );

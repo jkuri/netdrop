@@ -15,11 +15,12 @@ use std::env;
 use netdrop::{establish_connection, create_file, get_file_by_hash, models::NewFile};
 use rocket::response::Responder;
 use rocket::http::{Header, Status};
+use rocket_cors::{AllowedOrigins, CorsOptions};
 
 static ASSETS: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/web/netdrop/dist");
 
 #[derive(Serialize)]
-struct UploadResponse {
+pub struct UploadResponse {
     success: bool,
     message: String,
     file_id: Option<i32>,
@@ -27,7 +28,7 @@ struct UploadResponse {
 }
 
 #[derive(Serialize)]
-struct ErrorResponse {
+pub struct ErrorResponse {
     success: bool,
     error: String,
 }
@@ -115,7 +116,7 @@ pub async fn upload_file(data: Data<'_>) -> Result<Json<UploadResponse>, Json<Er
 }
 
 #[derive(Responder)]
-struct FileDownload {
+pub struct FileDownload {
     inner: Vec<u8>,
     content_type: ContentType,
     content_disposition: Header<'static>,
@@ -154,6 +155,19 @@ pub fn index() -> RawHtml<&'static str> {
 
 #[launch]
 pub fn rocket() -> _ {
+    let cors = CorsOptions::default()
+        .allowed_origins(AllowedOrigins::all())
+        .allowed_methods(
+            vec![rocket::http::Method::Get, rocket::http::Method::Post]
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        )
+        .allow_credentials(true)
+        .to_cors()
+        .expect("Error creating CORS fairing");
+
     rocket::build()
         .mount("/", routes![index, static_files, upload_file, download_file])
+        .attach(cors)
 }

@@ -11,7 +11,6 @@ export function Background() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
-    // High DPI support for crisp rendering
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
 
@@ -42,10 +41,9 @@ export function Background() {
 
     // Animation parameters
     const getParams = () => {
-      const offset = height > 800 ? 116 : height > 380 ? 100 : 65;
       return {
         centerX: width / 2,
-        centerY: height - offset,
+        centerY: height / 2,
         spacing: Math.max(width, height, 1000) / 13,
         maxRadius: Math.max(width, height) * 1.2,
       };
@@ -81,7 +79,6 @@ export function Background() {
     };
 
     const animate = (currentTime: number) => {
-      // Frame rate limiting for consistent performance
       if (currentTime - lastTime >= frameInterval) {
         render();
         lastTime = currentTime;
