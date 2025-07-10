@@ -251,8 +251,6 @@ fn test_cors_configuration() {
 #[test]
 #[serial]
 fn test_multipart_upload_logic() {
-    let temp_dir = setup_test_env();
-
     // Test that the multipart upload logic correctly separates:
     // - file_name: original filename from the upload
     // - file_path: hash-based storage path

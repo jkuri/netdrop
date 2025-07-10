@@ -33,22 +33,26 @@ build-web:
 
 # Build the Rust project in debug mode
 build:
+	@if [ ! -d "web/netdrop/node_modules" ]; then \
+		echo "Web dependencies not found, installing first..."; \
+		$(MAKE) install-npm; \
+	fi
 	@if [ ! -d "web/netdrop/dist" ]; then \
 		echo "Web build not found, building web frontend first..."; \
 		$(MAKE) build-web; \
-	else \
-		echo "Web build found, skipping frontend build..."; \
 	fi
 	@echo "Building Rust project (debug)..."
 	cargo build
 
 # Build the Rust project in release mode
 build-release:
+	@if [ ! -d "web/netdrop/node_modules" ]; then \
+		echo "Web dependencies not found, installing first..."; \
+		$(MAKE) install-npm; \
+	fi
 	@if [ ! -d "web/netdrop/dist" ]; then \
 		echo "Web build not found, building web frontend first..."; \
 		$(MAKE) build-web; \
-	else \
-		echo "Web build found, skipping frontend build..."; \
 	fi
 	@echo "Building Rust project (release)..."
 	cargo build --release

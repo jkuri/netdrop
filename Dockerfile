@@ -18,9 +18,8 @@ RUN npm run build
 # Stage 2: Build the Rust program
 FROM rust:1.88-alpine AS rust-builder
 
-# Install build dependencies including diesel CLI
+# Install build dependencies
 RUN apk add --no-cache musl-dev sqlite-dev sqlite-static
-RUN cargo install diesel_cli --no-default-features --features sqlite
 
 WORKDIR /app
 
@@ -38,10 +37,8 @@ COPY --from=frontend-builder /app/web/netdrop/dist ./web/netdrop/dist
 # Build the Rust application in release mode
 RUN cargo build --release
 
-# Create data directory and initialize database
+# Create data directory
 RUN mkdir -p /app/data
-ENV DATABASE_URL=/app/data/netdrop.db
-RUN diesel migration run
 
 # Stage 3: Final runtime image
 FROM alpine:latest
@@ -55,8 +52,8 @@ WORKDIR /app
 # Copy the built binary from the builder stage
 COPY --from=rust-builder /app/target/release/netdrop /app/
 
-# Copy the initialized database from the builder stage
-COPY --from=rust-builder /app/data /app/data
+# Create data directory (migrations will initialize database on first run)
+RUN mkdir -p /app/data
 
 # Set environment variables
 ENV DATA_DIR=/app/data

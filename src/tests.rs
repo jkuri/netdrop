@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
     use std::fs;
     use std::env;
@@ -20,7 +19,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_upload_file_logic() {
-        let temp_dir = setup_test_env();
         let test_data = b"Hello, World! This is test file content.";
 
         // Simulate upload logic
@@ -70,8 +68,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_large_file_handling() {
-        let temp_dir = setup_test_env();
-
         // Create a 1MB test file
         let test_data = vec![0u8; 1024 * 1024];
 
@@ -136,7 +132,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_download_simulation() {
-        let temp_dir = setup_test_env();
         let test_data = b"Download test content";
 
         // Simulate upload process
@@ -161,8 +156,6 @@ mod tests {
     #[test]
     #[serial]
     fn test_binary_data_handling() {
-        let temp_dir = setup_test_env();
-
         // Create binary test data with various byte values
         let test_data: Vec<u8> = (0..=255).collect();
 

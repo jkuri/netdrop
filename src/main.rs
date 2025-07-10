@@ -14,7 +14,7 @@ use std::fs;
 use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use netdrop::{establish_connection, create_file, get_file_by_hash, models::NewFile};
+use netdrop::{establish_connection, create_file, get_file_by_hash, run_migrations, models::NewFile};
 use rocket::response::Responder;
 use rocket::http::{Header, Status};
 use rocket_cors::{AllowedOrigins, CorsOptions};
@@ -191,6 +191,12 @@ pub fn index() -> RawHtml<&'static str> {
 
 #[launch]
 pub fn rocket() -> _ {
+    // Run database migrations on startup
+    if let Err(e) = run_migrations() {
+        eprintln!("Failed to run migrations: {}", e);
+        std::process::exit(1);
+    }
+
     let cors = CorsOptions::default()
         .allowed_origins(AllowedOrigins::all())
         .allowed_methods(
