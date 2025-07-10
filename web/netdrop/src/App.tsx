@@ -4,10 +4,10 @@ import { Dropzone } from "./components/common/dropzone";
 
 export function App() {
   return (
-    <div className="relative min-h-screen w-full bg-white">
+    <div className="relative min-h-dvh w-full bg-white">
       <Background />
 
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-8">
+      <div className="relative z-10 flex min-h-dvh flex-col items-center justify-center p-8">
         <Dropzone />
       </div>
 

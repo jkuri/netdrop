@@ -16,8 +16,6 @@ export function Background() {
 
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
 
     ctx.scale(dpr, dpr);
 
@@ -29,18 +27,20 @@ export function Background() {
   }, []);
 
   useEffect(() => {
-    const canvasData = setupCanvas();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    let canvasData = setupCanvas();
     if (!canvasData) return;
 
-    const { ctx, width, height } = canvasData;
+    let { ctx, width, height } = canvasData;
 
     let step = 0;
     let lastTime = 0;
     const targetFPS = 60;
     const frameInterval = 1000 / targetFPS;
 
-    // Animation parameters
-    const getParams = () => {
+    const getParams = (width: number, height: number) => {
       return {
         centerX: width / 2,
         centerY: height / 2,
@@ -49,7 +49,7 @@ export function Background() {
       };
     };
 
-    let params = getParams();
+    let params = getParams(width, height);
 
     const drawCircle = (radius: number) => {
       if (radius <= 0 || radius > params.maxRadius) return;
@@ -59,7 +59,7 @@ export function Background() {
       const normalizedRadius = radius / params.maxRadius;
       const baseOpacity = 0.12;
       const opacity = baseOpacity * (1 - normalizedRadius * 0.7);
-      const grayValue = Math.round(190 + 20 * (1 - normalizedRadius));
+      const grayValue = Math.round(190 + 25 * (1 - normalizedRadius));
 
       ctx.strokeStyle = `rgba(${grayValue}, ${grayValue}, ${grayValue}, ${opacity})`;
       ctx.lineWidth = 1.8;
@@ -87,28 +87,23 @@ export function Background() {
       animationRef.current = requestAnimationFrame(animate);
     };
 
-    let resizeTimeout: NodeJS.Timeout;
-    const handleResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        const newCanvasData = setupCanvas();
-        if (newCanvasData) {
-          params = getParams();
-        }
-      }, 150);
-    };
+    const observer = new ResizeObserver(() => {
+      canvasData = setupCanvas();
+      if (canvasData) {
+        params = getParams(canvasData.width, canvasData.height);
+        ({ width, height, ctx } = canvasData);
+      }
+    });
 
-    window.addEventListener("resize", handleResize);
+    observer.observe(canvas);
 
     animationRef.current = requestAnimationFrame(animate);
 
     return () => {
-      window.removeEventListener("resize", handleResize);
-
+      observer.disconnect();
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
-      clearTimeout(resizeTimeout);
     };
   }, [setupCanvas]);
 

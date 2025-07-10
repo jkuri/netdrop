@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useFileUpload } from "@/contexts/file-upload-context";
 import { cn } from "@/lib/utils";
@@ -54,8 +55,6 @@ export function Dropzone() {
   };
 
   const _handleShare = useCallback(async (url: string) => {
-    const { toast } = await import("sonner");
-
     try {
       await navigator.clipboard.writeText(url);
       // Show success toast
@@ -115,7 +114,7 @@ export function Dropzone() {
         }
         return <Loader2 className="h-5 w-5 animate-spin text-blue-500" />;
       case "completed":
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
+        return <CheckCircle className="h-5 w-5 text-green-600" />;
       case "error":
         return <XCircle className="h-5 w-5 text-red-500" />;
       default:
@@ -127,11 +126,11 @@ export function Dropzone() {
     <div className="mx-auto w-full max-w-3xl">
       <div
         className={cn(
-          "relative cursor-pointer rounded-lg border-2 border-dashed bg-white/60 p-12 transition-all duration-200",
+          "relative cursor-pointer rounded-lg border-1 border-dashed bg-white/70 p-12 transition-all duration-200",
           isDragActive
             ? "border-blue-400 bg-blue-50"
             : "border-gray-300 hover:border-gray-400 hover:bg-white",
-          isUploading && "pointer-events-none opacity-50",
+          isUploading && "pointer-events-none",
         )}
       >
         <div className="absolute inset-0 z-10" {...getRootProps()} />
@@ -155,7 +154,7 @@ export function Dropzone() {
               {files.map((file) => (
                 <div
                   key={file.id}
-                  className="rounded-lg border bg-white p-4 shadow-sm"
+                  className="rounded-lg border bg-white p-4 shadow-xs"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex min-w-0 flex-1 items-center space-x-3">
