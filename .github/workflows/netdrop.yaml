@@ -1,10 +1,13 @@
-name: Frontend
+name: API
 
 on:
   push:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
@@ -22,11 +25,13 @@ jobs:
           path: web/netdrop/node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('web/netdrop/package-lock.json') }}
           restore-keys: ${{ runner.os }}-node
-      - name: Change working directory
-        run: cd web/netdrop
       - name: Install dependencies
-        run: npm ci
-      - name: Build
-        run: npm run build
-      - name: Lint
-        run: npm run lint
+        run: cd web/netdrop && npm ci
+      - name: Lint web applicatiomn
+        run: cd web/netdrop && npm run lint
+      - name: Build web application
+        run: cd web/netdrop && npm run build
+      - name: Build program
+        run: cargo build --release
+      - name: Run tests
+        run: cargo test
